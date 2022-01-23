@@ -9,7 +9,13 @@ class SessionsController {
     async create(req, res, next) {
         const {email, password} = req.body
 
-        const user = await User.findOne({where: {email}})
+        if (!email || !password) {
+            next(ApiError.badRequest('Fields must not be empty'))
+        }
+
+        const user = await User.findOne({
+            where: {email}
+        })
 
         if (!user) {
             next(ApiError.badRequest('User with such email does not exist'))
@@ -24,7 +30,6 @@ class SessionsController {
         const token = generateJwt(user.id, user.email, user.name)
 
         return res.status(200).json({status: 1, token})
-
     }
 }
 
