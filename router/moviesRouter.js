@@ -6,7 +6,7 @@ const router = new Router()
 
 router.post('/', MoviesController.create)
 router.delete('/:id', MoviesController.delete)
-router.path('/:id', MoviesController.update)
+router.patch('/:id', MoviesController.update)
 router.get('/:id', MoviesController.show)
 router.get('/', MoviesController.list)
 router.post('/import', MoviesController.import)
