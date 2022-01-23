@@ -120,39 +120,53 @@ class MoviesController {
         let {actor, title, search, sort, order, limit, page} = req.query
         let offset
 
-        actor = actor || null
-        title = title || null
-        search = search || null
-        sort = sort || 'id'
-        order = order || 'ASC'
+        actor = actor ? actor.charAt(0).toUpperCase() + title.slice(1) : null
+        title = title ? title.charAt(0).toUpperCase() + title.slice(1) : null
+        search = search ? search.charAt(0).toUpperCase() + title.slice(1) : null
+        sort = sort ? sort.toLowerCase() : 'id'
+        order = order ? order.toUpperCase() : 'ASC'
         limit = limit || 10
         page = page || 1
         offset = page * limit - limit || 0
 
-        /*let where = []
-        const condition = title ? null : {title: `${title}`}
-        where.push(condition)
-        console.log(...where)
-        /!*let qwe = null
-        qwe = qwe || 'SpiderMan 4'*!/*/
-
-        const qwe = []
-
-        if (title) {
-            qwe.push({title})
+        if (sort !== 'id' || sort !== 'title' || sort !== 'year' || sort !== 'format' || sort !== 'createdAt' || sort !== 'updatedAt') {
+            next(ApiError.badRequest('Sort field was entered incorrectly'))
         }
 
-        console.log(qwe)
-        console.log(limit)
+        if (order !== 'ASC' || order !== 'DESC') {
+            next(ApiError.badRequest('Order field war entered incorrectly'))
+        }
+
+
+        let whereTitleReq = []
+        let whereActorReq = []
+
+        if (title) {
+            whereTitleReq.push({title: {[Op.substring]: title}})
+        }
+
+        if (actor) {
+            whereActorReq.push({actor: {[Op.substring]: actor}})
+        }
 
         const movieRes = await Movies.findAll({
-            where: [...qwe],
+            where: [...whereTitleReq],
+            attributes: ['id', 'title', 'year', 'format', 'createdAt', 'updatedAt'],
+            include: {
+                model: Actors,
+                where: [...whereActorReq],
+                attributes: ['id', 'actor'],
+                through: {
+                    attributes: []
+                }
+            },
             order: [[sort, order]],
             limit,
             offset
         })
 
         return res.json({movieRes})
+
     }
 
     async import() {

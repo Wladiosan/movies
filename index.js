@@ -4,6 +4,7 @@ const cors = require('cors')
 
 const sequelize = require('./db')
 const router = require('./router/index')
+const ApiError = require('./error/ApiError')
 const ErrorHandler = require('./middleware/ErrorHandlerMiddleware')
 
 const PORT = process.env.PORT || 8000
@@ -15,13 +16,14 @@ app.use('/api/v1', router)
 
 app.use(ErrorHandler)
 
-const start = async () => {
+const start = async (req, res, next) => {
     try {
         await sequelize.authenticate()
         await sequelize.sync()
         app.listen(PORT, () => console.log(`Server started at port: ${PORT}`))
     } catch (e) {
-        console.log('Message: ', e.message)
+        console.log(e.message)
+        next(ApiError.internal('Internal Server Error'))
     }
 }
 
