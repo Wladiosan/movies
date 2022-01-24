@@ -98,6 +98,10 @@ class MoviesController {
             where: {id}
         })
 
+        if (!updateMovie) {
+            next(ApiError.badRequest('Movie with this id not found'))
+        }
+
         if (title) {
             const checkFreeTitle = await Movies.findOne({
                 where: {title}
@@ -157,7 +161,7 @@ class MoviesController {
             attributes: ['id', 'title', 'year', 'format'],
             include: {
                 model: Actors,
-                attributes: ['id', 'actor'],
+                attributes: ['id', 'actor', 'createdAt', 'updatedAt'],
                 through: {
                     attributes: []
                 }
