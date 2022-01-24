@@ -61,7 +61,7 @@ class MoviesController {
             attributes: ['id', 'title', 'year', 'format'],
             include: {
                 model: Actors,
-                attributes: ['id', 'actor'],
+                attributes: ['id', 'actor', 'createdAt', 'updatedAt'],
                 through: {
                     attributes: []
                 }
