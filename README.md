@@ -1,5 +1,12 @@
 # movies
 
+GET START:
+1. git clone https://github.com/Wladiosan/movies.git
+2. npm install
+3. npm run start
+4. try postman
+5. (sorry, without docker, because can not install sqlite package on docker image)
+
 ROUTES:
 
 Users:
