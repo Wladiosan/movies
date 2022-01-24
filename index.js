@@ -1,6 +1,8 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
+const path = require('path')
+const fileUpload = require('express-fileupload')
 
 const sequelize = require('./db')
 const router = require('./router/index')
@@ -12,6 +14,8 @@ const app = new express()
 
 app.use(cors())
 app.use(express.json())
+app.use(express.static(path.resolve(__dirname, 'static')))
+app.use(fileUpload({}))
 app.use('/api/v1', router)
 
 app.use(ErrorHandler)
