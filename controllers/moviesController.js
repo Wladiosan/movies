@@ -12,7 +12,7 @@ class MoviesController {
         const {title, year, format} = req.body
         let {actors} = req.body
 
-        if (!title || !year || !format || !stars.length) {
+        if (!title || !year || !format || !actors.length) {
             next(ApiError.badRequest('Some fields are empty'))
         }
 
@@ -191,12 +191,14 @@ class MoviesController {
             }
         })
 
-        return res.json({movieRes})
+        return res.json({data: movieRes})
     }
 
     async list(req, res, next) {
         let {actor, title, search, sort, order, limit, page} = req.query
         let offset
+
+        console.log(actor, title, search, sort, order, limit, page)
 
         actor = actor ? actor.charAt(0).toUpperCase() + title.slice(1) : null
         title = title ? title.charAt(0).toUpperCase() + title.slice(1) : null
@@ -207,13 +209,13 @@ class MoviesController {
         page = page || 1
         offset = page * limit - limit || 0
 
-        if (sort !== 'id' || sort !== 'title' || sort !== 'year' || sort !== 'format' || sort !== 'createdAt' || sort !== 'updatedAt') {
+        /*if (sort !== 'id' || sort !== 'title' || sort !== 'year' || sort !== 'format' || sort !== 'createdAt' || sort !== 'updatedAt') {
             next(ApiError.badRequest('Sort field was entered incorrectly'))
-        }
+        }*/
 
-        if (order !== 'ASC' || order !== 'DESC') {
+        /*if (order !== 'ASC' || order !== 'DESC') {
             next(ApiError.badRequest('Order field war entered incorrectly'))
-        }
+        }*/
 
 
         let whereTitleReq = []
@@ -243,11 +245,11 @@ class MoviesController {
             offset
         })
 
-        return res.json({movieRes})
+        return res.json({data: movieRes})
 
     }
 
-    async import(req, res, next) {
+    async import(req, res) {
         const {formData} = req.files
         let fileName = uuid.v4() + '.txt'
 
@@ -264,9 +266,6 @@ class MoviesController {
         })
 
         await Promise.all([unloadFile, readFile])
-
-
-        // await formData.mv(path.resolve(__dirname, '..', 'static', fileName))
 
         return res.json({formDataInfo})
     }
