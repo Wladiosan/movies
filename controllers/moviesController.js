@@ -24,6 +24,10 @@ class MoviesController {
             next(ApiError.badRequest('Year field must be number'))
         }
 
+        if (year > 2022 || year < 1940) {
+            next(ApiError.badRequest('The year field is incorrect'))
+        }
+
         const checkMovie = await Movies.findOne({
             where: {title}
         })
