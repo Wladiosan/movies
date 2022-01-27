@@ -5,6 +5,8 @@ const fs = require('fs')
 
 const {Movies, Actors, MoviesActors} = require('../models/models')
 const ApiError = require('../error/ApiError')
+const {resolve} = require("path");
+const {logger} = require("sequelize/lib/utils/logger");
 
 class MoviesController {
 
@@ -72,7 +74,7 @@ class MoviesController {
             }
         })
 
-        return res.status(201).json({data})
+        return res.status(201).json(data)
     }
 
     async delete(req, res, next) {
@@ -262,27 +264,130 @@ class MoviesController {
 
     }
 
-    async import(req, res) {
-        const {formData} = req.files
+    async import(req, res, next) {
+        const formData = req.files.formData
         let fileName = uuid.v4() + '.txt'
 
-        let formDataInfo
+        /*Todo*/
+        if (!formData) {
+            next(ApiError.badRequest('File not found'))
+        }
 
-        const unloadFile = new Promise(() => {
-            formData.mv(path.resolve(__dirname, '..', 'static', fileName))
-        })
+        await formData.mv(path.resolve(__dirname, '..', 'static', fileName))
 
-        const readFile = new Promise(() => {
-            formDataInfo = fs.readFile(path.resolve(__dirname, '..', 'static', fileName), 'utf8', (error, data) => {
-                return data
+
+        let importList = []
+        let finishArrActors = []
+        let obj = {}
+
+        function importFile() {
+
+            return new Promise(function (resolve) {
+                const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
+
+                dataFile.split('\n\n').map(arr => {
+                    importList.push(arr.split('\n'))
+                })
+
+                resolve(importList)
             })
+                .then(dataArray => {
+
+                    dataArray.map(t => {
+
+                        obj.title = t['0'].substr(7)
+                        obj.year = t['1'].substr(14)
+                        obj.format = t['2'].substr(8)
+                        obj.stars = t['3'].substr(7)
+
+                        finishArrActors.push(obj)
+                    })
+                    return finishArrActors
+                }).then(
+                    res.json({finishArrActors})
+                )
+        }
+
+        importFile()
+
+        /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
+        /*function importFile() {
+
+            return new Promise(function (resolve) {
+                const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
+                dataFile.split('\n\n').map(arr => {
+                    importList.push(arr.split('\n'))
+                })
+                resolve(importList)
+            })
+                .then(dataArray => {
+
+                    dataArray.map(t => {
+
+                        obj.title = t['0'].substr(7)
+                        obj.year = t['1'].substr(14)
+                        obj.format = t['2'].substr(8)
+                        obj.stars = t['3'].substr(7)
+
+                        finishArrActors.push(obj)
+                    })
+                    return finishArrActors
+                }).then(
+                    res.json({finishArrActors})
+                )
+        }
+
+        importFile()*/
+
+        /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
+        /*const unloadFile = new Promise(resolve => {
+            formData.mv(path.resolve(__dirname, '..', 'static', fileName))
+            resolve()
         })
+            .then(() => {
+                return new Promise(resolve => {
 
-        await Promise.all([unloadFile, readFile])
+                    /!*(err, data) => {
+                        txt = data.split('\n')
+                        console.log(txt[1])
+                    }*!/
 
-        return res.json({formDataInfo})
+                    let txt
+                    txt = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
+                    txt.split('\n')
+                    console.log('txt: ', txt)
+                    resolve()
+                })
+            })
+            .then(()=> console.log('The end promise: '))*/
+
+        /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
+        /*const unloadFile = new Promise((resolve, reject) => {
+            formData.mv(path.resolve(__dirname, '..', 'static', fileName))
+            resolve()
+        }).then()
+
+        const readFile = new Promise((resolve, reject) => {
+            /!*formDataInfo = fs.readFile(path.resolve(__dirname, '..', 'static', fileName), 'utf8', (error, data) => {
+            })*!/
+
+            fs.readFileSync(path.resolve(__dirname, '..', 'static', fileName), 'utf8', (err, data) => {
+                console.log(data)
+            })
+
+            resolve()
+        })*/
+
+        // await Promise.all([unloadFile, readFile])
+
+        /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
     }
 
 }
 
-module.exports = new MoviesController()
+module
+    .exports = new MoviesController()
