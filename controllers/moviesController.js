@@ -5,9 +5,7 @@ const fs = require('fs')
 
 const {Movies, Actors, MoviesActors} = require('../models/models')
 const ApiError = require('../error/ApiError')
-const {resolve} = require("path");
-const {logger} = require("sequelize/lib/utils/logger");
-const {reject} = require("bcrypt/promises");
+const {resolve} = require('path')
 
 class MoviesController {
 
@@ -269,19 +267,17 @@ class MoviesController {
         const formData = req.files.formData
         let fileName = uuid.v4() + '.txt'
 
-        /*Todo*/
         if (!formData) {
             next(ApiError.badRequest('File not found'))
         }
 
         await formData.mv(path.resolve(__dirname, '..', 'static', fileName))
 
-
         let importList = []
         let finishArrMovies = []
         let movieIds = []
 
-        const importMovie = new Promise((resolve, reject) => {
+        const importMovie = new Promise(resolve => {
             const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
 
             dataFile.split('\n\n').map(
@@ -291,451 +287,225 @@ class MoviesController {
             resolve()
         })
 
-        importMovie.then(() => {
-            importList.map(t => {
-                let obj = {}
+        importMovie
+            .then(() => {
+                importList.map(t => {
+                    let obj = {}
 
-                obj.title = t['0'].substr(7)
-                obj.year = +t['1'].substr(14)
-                obj.format = t['2'].substr(8)
-                obj.stars = t['3'].substr(7).split(', ')
+                    obj.title = t['0'].substr(7)
+                    obj.year = +t['1'].substr(14)
+                    obj.format = t['2'].substr(8)
+                    obj.stars = t['3'].substr(7).split(', ')
 
-                if (!obj.title || !obj.year || !obj.format || !obj.stars.length) {
-                    return console.log(`Field format type is incorrect in ${obj.title} movie`)
-                }
+                    if (!obj.title || !obj.year || !obj.format || !obj.stars.length) {
+                        return console.log(`Field format type is incorrect in ${obj.title} movie`)
+                    }
 
-                if (typeof obj.year !== "number" || isNaN(obj.year)) {
-                    return console.log(`Field year type is not number in ${obj.title} movie`)
-                }
+                    if (typeof obj.year !== "number" || isNaN(obj.year)) {
+                        return console.log(`Field year type is not number in ${obj.title} movie`)
+                    }
 
-                if (obj.format !== 'DVD' && obj.format !== 'VHS' && obj.format !== 'Blu-Ray') {
-                    return console.log(`Field year type is not number in ${obj.title} movie`)
-                }
+                    if (obj.format !== 'DVD' && obj.format !== 'VHS' && obj.format !== 'Blu-Ray') {
+                        return console.log(`Field year type is not number in ${obj.title} movie`)
+                    }
 
-                if (obj.year > 2022 || obj.year < 1940) {
-                    return console.log(`Field year has incorrect range in ${obj.title} movie`)
-                }
+                    if (obj.year > 2022 || obj.year < 1940) {
+                        return console.log(`Field year has incorrect range in ${obj.title} movie`)
+                    }
 
-                finishArrMovies.push(obj)
+                    finishArrMovies.push(obj)
+                })
             })
-            resolve()
-        }).then(async () => {
-
-            const createMovieTasks = finishArrMovies.map(async arr => {
-                const checkMovie = await Movies.findOne({
-                    where: {title: arr.title}
-                })
-
-                if (checkMovie) {
-                    movieIds.push(checkMovie.id)
-                    return
-                }
-
-                const movie = await Movies.create({
-                    title: arr.title,
-                    year: arr.year,
-                    format: arr.format
-                })
-
-                console.log('movie.id: ', movie.id)
-
-                await arr.stars.map(
-                    async actor => {
-
-                        const checkActor = await Actors.findOne({
-                            where: {actor}
+            .then(async () => {
+                await Promise.all(finishArrMovies.map(
+                    async arr => {
+                        const checkMovie = await Movies.findOne({
+                            where: {title: arr.title}
                         })
 
-                        if (!checkActor) {
-                            const actorResponse = await Actors.create({actor})
-                            await MoviesActors.bulkCreate([{
-                                movieId: movie.id,
-                                actorId: actorResponse.id
-                            }])
+                        if (checkMovie) {
+                            movieIds.push(checkMovie.id)
                             return
                         }
 
-                        await MoviesActors.bulkCreate([{
-                            movieId: movie.id,
-                            actorId: checkActor.id
-                        }])
-                    }
-                )
+                        const movie = await Movies.create({
+                            title: arr.title,
+                            year: arr.year,
+                            format: arr.format
+                        })
 
-                movieIds.push(movie.id)
+                        movieIds.push(movie.id)
+
+                        console.log("Array all actors: ", arr.stars)
+
+                        await Promise.all(arr.stars.map(
+                            async actor => {
+
+                                const [actorCheck, created] = await Actors.findOrCreate({
+                                    where: {actor}
+                                })
+
+                                console.log(`Operation with actor name: ${actorCheck.actor}, flag: ${created}`)
+
+                                if (created) {
+                                    await MoviesActors.bulkCreate([{
+                                        movieId: movie.id,
+                                        actorId: actorCheck.id
+                                    }])
+                                }
+
+                                /*const checkActor = await Actors.findOne({
+                                    where: {actor}
+                                })
+                                if (!checkActor) {
+                                    // console.log(`Insert actor: ${actor}`)
+                                    const actorResponse = await Actors.create({actor})
+                                    // console.log('actorResponseID: ', actorResponse.id)
+                                    await MoviesActors.bulkCreate([{
+                                        movieId: movie.id,
+                                        actorId: actorResponse.id
+                                    }])
+                                    return
+                                }
+
+                                await MoviesActors.bulkCreate([{
+                                    movieId: movie.id,
+                                    actorId: checkActor.id
+                                }])*/
+                            }
+                        ))
+                    }))
             })
-
-            await Promise.all(createMovieTasks)
-            resolve()
-
-        }).then(
-            async () => {
-                console.log('movieIds: ', movieIds)
+            .then(async () => {
+                console.log(movieIds)
                 const data = await Movies.findAll({
                     where: {
                         id: [...movieIds]
                     },
-                    attributes: ['id', 'title', 'year', 'format', 'createdAt', 'updatedAt'],
                     include: {
                         model: Actors,
-                        attributes: ['id', 'actor', 'createdAt', 'updatedAt'],
+                        attributes: ['id', 'actor'],
                         through: {
                             attributes: []
                         }
                     }
                 })
                 res.json({data})
-                resolve()
             })
-
-
-        /*function importFile() {
-
-            return new Promise(function (resolve) {
-                const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
-
-                dataFile.split('\n\n').map(
-                    arr => {
-                        importList.push(
-                            arr.split('\n'))
-                    })
-
-                resolve(importList)
-            })
-                .then(
-                    dataArray => {
-                        return new Promise((resolve, reject) => {
-
-                            dataArray.map(t => {
-                                let obj = {}
-
-                                obj.title = t['0'].substr(7)
-                                obj.year = +t['1'].substr(14)
-                                obj.format = t['2'].substr(8)
-                                obj.stars = t['3'].substr(7).split(', ')
-
-                                if (!obj.title || !obj.year || !obj.format || !obj.stars.length) {
-                                    return console.log(`Field format type is incorrect in ${obj.title} movie`)
-                                }
-
-                                if (typeof obj.year !== "number" || isNaN(obj.year)) {
-                                    return console.log(`Field year type is not number in ${obj.title} movie`)
-                                }
-
-                                if (obj.format !== 'DVD' && obj.format !== 'VHS' && obj.format !== 'Blu-Ray') {
-                                    return console.log(`Field year type is not number in ${obj.title} movie`)
-                                }
-
-                                if (obj.year > 2022 || obj.year < 1940) {
-                                    return console.log(`Field year has incorrect range in ${obj.title} movie`)
-                                }
-
-                                finishArrMovies.push(obj)
-                            })
-
-                            resolve(finishArrMovies)
-
-                        })
-                            .then(
-                                finishArrMovies => {
-
-                                    return new Promise((resolve, reject) => {
-
-                                        finishArrMovies.map(async arr => {
-
-                                            const checkMovie = await Movies.findOne({
-                                                where: {title: arr.title}
-                                            })
-
-                                            if (checkMovie) return
-
-                                            return new Promise(async (resolve, reject) => {
-
-                                                const movie = await Movies.create({
-                                                    title: arr.title,
-                                                    year: arr.year,
-                                                    format: arr.format
-                                                })
-
-                                                await arr.stars.map(
-                                                    async actor => {
-
-                                                        const checkActor = await Actors.findOne({
-                                                            where: {actor}
-                                                        })
-
-                                                        if (!checkActor) {
-                                                            const actorResponse = await Actors.create({actor})
-                                                            await MoviesActors.bulkCreate([{
-                                                                movieId: movie.id,
-                                                                actorId: actorResponse.id
-                                                            }])
-                                                            return
-                                                        }
-
-                                                        await MoviesActors.bulkCreate([{
-                                                            movieId: movie.id,
-                                                            actorId: checkActor.id
-                                                        }])
-                                                    }
-                                                )
-
-                                                resolve(movie)
-                                            }).then(
-                                                async movie => {
-                                                    movieIds.push(movie.id)
-                                                    console.log(movieIds)
-                                                }
-                                            ).then(
-
-
-                                                res.json({movieIds})
-                                            )
-                                        })
-                                    }).then(
-                                        async (movieIds) => {
-                                            /!*const data = await Movies.findOne({
-                                                where: {id: movie.id},
-                                                attributes: ['id', 'title', 'year', 'format'],
-                                                include: {
-                                                    model: Actors,
-                                                    attributes: ['id', 'actor', 'createdAt', 'updatedAt'],
-                                                    through: {
-                                                        attributes: []
-                                                    }
-                                                }
-                                            })*!/
-                                        }
-                                    )
-
-                                })
-
-                    })
-        }*/
-
-        // importFile()
-
     }
 
     /*async import(req, res, next) {
         const formData = req.files.formData
         let fileName = uuid.v4() + '.txt'
 
-        /!*Todo*!/
         if (!formData) {
             next(ApiError.badRequest('File not found'))
         }
 
         await formData.mv(path.resolve(__dirname, '..', 'static', fileName))
 
-
         let importList = []
         let finishArrMovies = []
         let movieIds = []
 
-        function importFile() {
+        const importMovie = new Promise(resolve => {
+            const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
 
-            return new Promise(function (resolve) {
-                const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
+            dataFile.split('\n\n').map(
+                arr => importList.push(arr.split('\n'))
+            )
 
-                dataFile.split('\n\n').map(
-                    arr => {
-                        importList.push(
-                            arr.split('\n'))
-                    })
-
-                resolve(importList)
-            })
-                .then(
-                    dataArray => {
-                        return new Promise((resolve, reject) => {
-
-                            dataArray.map(t => {
-                                let obj = {}
-
-                                obj.title = t['0'].substr(7)
-                                obj.year = +t['1'].substr(14)
-                                obj.format = t['2'].substr(8)
-                                obj.stars = t['3'].substr(7).split(', ')
-
-                                if (!obj.title || !obj.year || !obj.format || !obj.stars.length) {
-                                    return console.log(`Field format type is incorrect in ${obj.title} movie`)
-                                }
-
-                                if (typeof obj.year !== "number" || isNaN(obj.year)) {
-                                    return console.log(`Field year type is not number in ${obj.title} movie`)
-                                }
-
-                                if (obj.format !== 'DVD' && obj.format !== 'VHS' && obj.format !== 'Blu-Ray') {
-                                    return console.log(`Field year type is not number in ${obj.title} movie`)
-                                }
-
-                                if (obj.year > 2022 || obj.year < 1940) {
-                                    return console.log(`Field year has incorrect range in ${obj.title} movie`)
-                                }
-
-                                finishArrMovies.push(obj)
-                            })
-
-                            resolve(finishArrMovies)
-
-                        })
-                            .then(
-                                finishArrMovies => {
-
-                                    return new Promise((resolve, reject) => {
-
-                                        finishArrMovies.map(async arr => {
-
-                                            const checkMovie = await Movies.findOne({
-                                                where: {title: arr.title}
-                                            })
-
-                                            if (checkMovie) return
-
-                                            return new Promise(async (resolve, reject) => {
-
-                                                const movie = await Movies.create({
-                                                    title: arr.title,
-                                                    year: arr.year,
-                                                    format: arr.format
-                                                })
-
-                                                await arr.stars.map(
-                                                    async actor => {
-
-                                                        const checkActor = await Actors.findOne({
-                                                            where: {actor}
-                                                        })
-
-                                                        if (!checkActor) {
-                                                            const actorResponse = await Actors.create({actor})
-                                                            await MoviesActors.bulkCreate([{
-                                                                movieId: movie.id,
-                                                                actorId: actorResponse.id
-                                                            }])
-                                                            return
-                                                        }
-
-                                                        await MoviesActors.bulkCreate([{
-                                                            movieId: movie.id,
-                                                            actorId: checkActor.id
-                                                        }])
-                                                    }
-                                                )
-
-                                                resolve(movie)
-                                            }).then(
-                                                async movie => {
-                                                    movieIds.push(movie.id)
-                                                    console.log(movieIds)
-                                                }
-                                            ).then(
-
-
-                                                res.json({movieIds})
-                                            )
-                                        })
-                                    }).then(
-                                        async (movieIds) => {
-                                            /!*const data = await Movies.findOne({
-                                                where: {id: movie.id},
-                                                attributes: ['id', 'title', 'year', 'format'],
-                                                include: {
-                                                    model: Actors,
-                                                    attributes: ['id', 'actor', 'createdAt', 'updatedAt'],
-                                                    through: {
-                                                        attributes: []
-                                                    }
-                                                }
-                                            })*!/
-                                        }
-                                    )
-
-                                })
-
-                    })
-        }
-
-        importFile()
-
-        /!*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*!/
-
-        /!*function importFile() {
-
-            return new Promise(function (resolve) {
-                const dataFile = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
-                dataFile.split('\n\n').map(arr => {
-                    importList.push(arr.split('\n'))
-                })
-                resolve(importList)
-            })
-                .then(dataArray => {
-
-                    dataArray.map(t => {
-
-                        obj.title = t['0'].substr(7)
-                        obj.year = t['1'].substr(14)
-                        obj.format = t['2'].substr(8)
-                        obj.stars = t['3'].substr(7)
-
-                        finishArrActors.push(obj)
-                    })
-                    return finishArrActors
-                }).then(
-                    res.json({finishArrActors})
-                )
-        }
-
-        importFile()*!/
-
-        /!*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*!/
-
-        /!*const unloadFile = new Promise(resolve => {
-            formData.mv(path.resolve(__dirname, '..', 'static', fileName))
             resolve()
         })
+
+        importMovie
             .then(() => {
-                return new Promise(resolve => {
+                importList.map(t => {
+                    let obj = {}
 
-                    /!*(err, data) => {
-                        txt = data.split('\n')
-                        console.log(txt[1])
-                    }*!/
+                    obj.title = t['0'].substr(7)
+                    obj.year = +t['1'].substr(14)
+                    obj.format = t['2'].substr(8)
+                    obj.stars = t['3'].substr(7).split(', ')
 
-                    let txt
-                    txt = fs.readFileSync(`${path.resolve(__dirname, '..', 'static', fileName)}`, 'utf8')
-                    txt.split('\n')
-                    console.log('txt: ', txt)
-                    resolve()
+                    if (!obj.title || !obj.year || !obj.format || !obj.stars.length) {
+                        return console.log(`Field format type is incorrect in ${obj.title} movie`)
+                    }
+
+                    if (typeof obj.year !== "number" || isNaN(obj.year)) {
+                        return console.log(`Field year type is not number in ${obj.title} movie`)
+                    }
+
+                    if (obj.format !== 'DVD' && obj.format !== 'VHS' && obj.format !== 'Blu-Ray') {
+                        return console.log(`Field year type is not number in ${obj.title} movie`)
+                    }
+
+                    if (obj.year > 2022 || obj.year < 1940) {
+                        return console.log(`Field year has incorrect range in ${obj.title} movie`)
+                    }
+
+                    finishArrMovies.push(obj)
                 })
             })
-            .then(()=> console.log('The end promise: '))*!/
+            .then(async () => {
+                await Promise.all(finishArrMovies.map(async arr => {
+                    const checkMovie = await Movies.findOne({
+                        where: {title: arr.title}
+                    })
 
-        /!*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*!/
+                    if (checkMovie) {
+                        movieIds.push(checkMovie.id)
+                        return
+                    }
 
-        /!*const unloadFile = new Promise((resolve, reject) => {
-            formData.mv(path.resolve(__dirname, '..', 'static', fileName))
-            resolve()
-        }).then()
+                    const movie = await Movies.create({
+                        title: arr.title,
+                        year: arr.year,
+                        format: arr.format
+                    })
 
-        const readFile = new Promise((resolve, reject) => {
-            /!*formDataInfo = fs.readFile(path.resolve(__dirname, '..', 'static', fileName), 'utf8', (error, data) => {
-            })*!/
+                    movieIds.push(movie.id)
 
-            fs.readFileSync(path.resolve(__dirname, '..', 'static', fileName), 'utf8', (err, data) => {
-                console.log(data)
+                    await arr.stars.map(
+                        async actor => {
+                            const checkActor = await Actors.findOne({
+                                where: {actor}
+                            })
+
+                            if (!checkActor) {
+                                const actorResponse = await Actors.create({actor})
+                                await MoviesActors.bulkCreate([{
+                                    movieId: movie.id,
+                                    actorId: actorResponse.id
+                                }])
+                                return
+                            }
+
+                            await MoviesActors.bulkCreate([{
+                                movieId: movie.id,
+                                actorId: checkActor.id
+                            }])
+                        }
+                    )
+                }))
             })
-
-            resolve()
-        })*!/
-
-        // await Promise.all([unloadFile, readFile])
-
-        /!*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*!/
-
+            .then(async () => {
+                console.log(movieIds)
+                const data = await Movies.findAll({
+                    where: {
+                        id: [...movieIds]
+                    },
+                    include: {
+                        model: Actors,
+                        attributes: ['id', 'actor'],
+                        through: {
+                            attributes: []
+                        }
+                    }
+                })
+                res.json({data})
+            })
     }*/
-
 }
 
 module.exports = new MoviesController()
