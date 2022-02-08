@@ -341,23 +341,22 @@ class MoviesController {
                         await Promise.all(arr.stars.map(
                             async actor => {
 
-                                const [actorCheck, created] = await Actors.findOrCreate({
-                                    where: {actor}
+                                const promise1 = new Promise(async () => {
+                                    const checkActor = await Actors.findOne({
+                                        where: {actor}
+                                    })
+                                    resolve(checkActor)
                                 })
 
-                                console.log(`Operation with actor name: ${actorCheck.actor}, flag: ${created}`)
-
-                                if (created) {
-                                    await MoviesActors.bulkCreate([{
-                                        movieId: movie.id,
-                                        actorId: actorCheck.id
-                                    }])
-                                }
-
-                                /*const checkActor = await Actors.findOne({
-                                    where: {actor}
+                                promise1.then( checkActor => {
+                                    console.log('checkMovie2: ', checkMovie)
                                 })
-                                if (!checkActor) {
+
+                                // const checkActor = await Actors.findOne({
+                                //     where: {actor}
+                                // })
+
+                                /*if (!checkActor) {
                                     // console.log(`Insert actor: ${actor}`)
                                     const actorResponse = await Actors.create({actor})
                                     // console.log('actorResponseID: ', actorResponse.id)
@@ -372,8 +371,23 @@ class MoviesController {
                                     movieId: movie.id,
                                     actorId: checkActor.id
                                 }])*/
+
+                                /*const [actorCheck, created] = await Actors.findOrCreate({
+                                    where: {actor}
+                                })
+
+                                console.log(`Operation with actor name: ${actorCheck.actor}, flag: ${created}`)
+
+                                if (created) {
+                                    await MoviesActors.bulkCreate([{
+                                        movieId: movie.id,
+                                        actorId: actorCheck.id
+                                    }])
+                                }*/
                             }
-                        ))
+                        )).catch(e => {
+                            console.log('Message error: ', e.message)
+                        })
                     }))
             })
             .then(async () => {
